@@ -6,9 +6,10 @@ from tensorflow.keras.models import load_model
 import pickle
 import os
 from datetime import timedelta
+from io import BytesIO  # <-- Added for download button
 
 # Set page configuration
-st.set_page_config(page_title="Pakistan Stock Market Analysis", layout="wide")
+st.set_page_config(page_title="Effects of political Events on Stock Market", layout="wide")
 
 # Load data and model
 @st.cache_data
@@ -16,17 +17,13 @@ def load_data_and_model():
     df_pak = pd.read_csv("Pakistan Stock Exchange Stock Price History (1).csv")
     df_recent = pd.read_csv('stock_pak.csv')
     
-    # Parse dates
     df_pak['Date'] = pd.to_datetime(df_pak['Date'], format='%m/%d/%Y', errors='coerce')
     df_recent['Date'] = pd.to_datetime(df_recent['Date'], format='%d-%b-%y', errors='coerce')
     
-    # Rename columns
     df_pak = df_pak.rename(columns={'Price': 'Close', 'Vol.': 'Volume', 'Change %': 'Change'})
     
-    # Concatenate data
     df_full = pd.concat([df_pak, df_recent], ignore_index=True)
     
-    # Clean numeric columns
     def clean_numeric(series):
         return pd.to_numeric(
             series.astype(str)
@@ -41,10 +38,8 @@ def load_data_and_model():
         if col in df_full.columns:
             df_full[col] = clean_numeric(df_full[col])
     
-    # Sort by date
     df_full = df_full.sort_values('Date')
     
-    # Load model and scaler
     model = load_model("model.h5")
     with open("scaler.pkl", "rb") as f:
         scaler = pickle.load(f)
@@ -53,7 +48,6 @@ def load_data_and_model():
 
 df_full, model, scaler = load_data_and_model()
 
-# Define event dictionaries
 event_dict = {
     'Elections': {
         'dates': pd.to_datetime(['2013-05-11', '2018-07-25', '2024-02-08']),
@@ -93,14 +87,9 @@ event_dict = {
             '2024-04-29': "IMF completed SBA review, $1.1B disbursed"
         },
         'label': 'IMF Event Day'
-    },
-    'Pak-India War': {
-        'dates': pd.to_datetime([]),  # No historical war events; handled in predictions
-        'label': 'War Event Day'
     }
 }
 
-# Prediction events
 prediction_events = {
     '2028 Election': {'date': pd.to_datetime('2028-08-12'), 'window_days': 30},
     '2025 Budget': {'date': pd.to_datetime('2025-06-07'), 'window_days': 60},
@@ -108,72 +97,70 @@ prediction_events = {
     '2025 Pak-India War': {'date': pd.to_datetime('2025-05-10'), 'window_days': 60}
 }
 
-# Sidebar for navigation
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Select Page", ["Historical Analysis", "Predictions"])
 
-# Historical Analysis Page
 if page == "Historical Analysis":
-    st.title("Pakistan Stock Market Event Analysis")
+    st.title("Effects of political Events on Stock Market")
     
-    # Dropdown for event type
     event_type = st.selectbox("Select Event Type", list(event_dict.keys()))
     
-    # Filter years based on selected event
-    if event_type != 'Pak-India War':  # No historical war events
-        available_years = sorted(set(event_dict[event_type]['dates'].year))
-        selected_year = st.selectbox("Select Year", available_years)
+    available_years = sorted(set(event_dict[event_type]['dates'].year))
+    selected_year = st.selectbox("Select Year", available_years)
         
-        # Filter dates for the selected year
-        selected_dates = event_dict[event_type]['dates'][event_dict[event_type]['dates'].year == selected_year]
+    selected_dates = event_dict[event_type]['dates'][event_dict[event_type]['dates'].year == selected_year]
         
-        if selected_dates.empty:
-            st.warning(f"No {event_type} data available for {selected_year}.")
-        else:
-            for date in selected_dates:
-                window_days = 60 if event_type in ['Budget', 'Geopolitical Events', 'IMF Events'] else 180
-                start = date - timedelta(days=window_days)
-                end = date + timedelta(days=window_days)
-                
-                window = df_full[(df_full['Date'] >= start) & (df_full['Date'] <= end)].copy()
-                
-                if len(window) >= 40:
-                    window = window.set_index('Date').reindex(pd.date_range(start, end), method='nearest')
-                    window['Close'] = window['Close'].interpolate().bfill().ffill()
-                    
-                    if window['Close'].isnull().sum() == 0:
-                        close_vals = window['Close'].values
-                        normalized = close_vals / close_vals[0] * 100
-                        days = np.arange(-window_days, window_days + 1)
-                        
-                        # Plot
-                        fig, ax = plt.subplots(figsize=(12, 6))
-                        ax.plot(days, normalized, color='blue', label=f'{event_type} Pattern')
-                        ax.axvline(x=0, color='red', linestyle='--', label=event_dict[event_type]['label'])
-                        
-                        title = f"Stock Price Movement Around {event_type} ({date.date()})"
-                        if event_type in ['Geopolitical Events', 'IMF Events'] and str(date.date()) in event_dict[event_type]['comments']:
-                            title += f"\n{event_dict[event_type]['comments'][str(date.date())]}"
-                        
-                        ax.set_title(title, fontsize=14)
-                        ax.set_xlabel('Days from Event')
-                        ax.set_ylabel('Normalized Stock Price (%)')
-                        ax.grid(True)
-                        ax.legend()
-                        plt.tight_layout()
-                        st.pyplot(fig)
-                    else:
-                        st.warning(f"Skipped {date.date()} — too many missing Close values.")
-                else:
-                    st.warning(f"Skipped {date.date()} — insufficient data points in ±{window_days} day window.")
+    if selected_dates.empty:
+        st.warning(f"No {event_type} data available for {selected_year}.")
     else:
-        st.info("No historical Pak-India War events available. Please check the Predictions page for a simulated forecast.")
+        for date in selected_dates:
+            window_days = 60 if event_type in ['Budget', 'Geopolitical Events', 'IMF Events'] else 180
+            start = date - timedelta(days=window_days)
+            end = date + timedelta(days=window_days)
+            
+            window = df_full[(df_full['Date'] >= start) & (df_full['Date'] <= end)].copy()
+            
+            if len(window) >= 40:
+                window = window.set_index('Date').reindex(pd.date_range(start, end), method='nearest')
+                window['Close'] = window['Close'].interpolate().bfill().ffill()
+                
+                if window['Close'].isnull().sum() == 0:
+                    close_vals = window['Close'].values
+                    normalized = close_vals / close_vals[0] * 100
+                    days = np.arange(-window_days, window_days + 1)
+                        
+                    fig, ax = plt.subplots(figsize=(12, 6))
+                    ax.plot(days, normalized, color='blue', label=f'{event_type} Pattern')
+                    ax.axvline(x=0, color='red', linestyle='--', label=event_dict[event_type]['label'])
+                    
+                    title = f"Stock Price Movement Around {event_type} ({date.date()})"
+                    if event_type in ['Geopolitical Events', 'IMF Events'] and str(date.date()) in event_dict[event_type]['comments']:
+                        title += f"\n{event_dict[event_type]['comments'][str(date.date())]}"
+                    
+                    ax.set_title(title, fontsize=14)
+                    ax.set_xlabel('Days from Event')
+                    ax.set_ylabel('Normalized Stock Price (%)')
+                    ax.grid(True)
+                    ax.legend()
+                    plt.tight_layout()
+                    st.pyplot(fig)
 
-# Predictions Page
+                    buf = BytesIO()
+                    fig.savefig(buf, format="png")
+                    st.download_button(
+                        label="Download Plot as PNG",
+                        data=buf.getvalue(),
+                        file_name="historical_plot.png",
+                        mime="image/png"
+                    )
+                else:
+                    st.warning(f"Skipped {date.date()} — too many missing Close values.")
+            else:
+                st.warning(f"Skipped {date.date()} — insufficient data points in ±{window_days} day window.")
+    
 else:
     st.title("Pakistan Stock Market Predictions")
     
-    # Dropdown for prediction event
     prediction_event = st.selectbox("Select Prediction Event", list(prediction_events.keys()))
     
     event_info = prediction_events[prediction_event]
@@ -181,7 +168,6 @@ else:
     window_days = event_info['window_days']
     
     if prediction_event == '2028 Election':
-        # Election prediction
         historical_dates = event_dict['Elections']['dates']
         patterns = []
         for date in historical_dates:
@@ -201,7 +187,6 @@ else:
             predicted_prices = baseline_price * avg_pattern / 100
             dates = pd.date_range(start=event_date - timedelta(days=window_days), periods=2*window_days + 1)
             
-            # Plot
             fig, ax = plt.subplots(figsize=(12, 6))
             ax.plot(dates, predicted_prices, color='blue', marker='o', label='Simulated Election Pattern')
             ax.axvline(event_date, color='green', linestyle='--', label='2028 Election Day')
@@ -212,11 +197,19 @@ else:
             ax.legend()
             plt.tight_layout()
             st.pyplot(fig)
+
+            buf = BytesIO()
+            fig.savefig(buf, format="png")
+            st.download_button(
+                label="Download Plot as PNG",
+                data=buf.getvalue(),
+                file_name="election_prediction.png",
+                mime="image/png"
+            )
         else:
             st.warning("Not enough clean past election data to generate prediction.")
     
     elif prediction_event == '2025 Budget':
-        # Budget prediction
         historical_dates = event_dict['Budget']['dates']
         patterns = []
         for date in historical_dates:
@@ -234,7 +227,6 @@ else:
             avg_pattern = np.mean(patterns, axis=0)
             dates = pd.date_range(event_date - timedelta(days=window_days), event_date + timedelta(days=window_days))
             
-            # Plot
             fig, ax = plt.subplots(figsize=(12, 6))
             ax.plot(dates, avg_pattern, color='purple', label='Predicted Budget 2025 Impact')
             ax.axvline(event_date, color='green', linestyle='--', label='Budget Day')
@@ -245,11 +237,19 @@ else:
             ax.legend()
             plt.tight_layout()
             st.pyplot(fig)
+
+            buf = BytesIO()
+            fig.savefig(buf, format="png")
+            st.download_button(
+                label="Download Plot as PNG",
+                data=buf.getvalue(),
+                file_name="budget_prediction.png",
+                mime="image/png"
+            )
         else:
             st.warning("Not enough clean past budget data to generate prediction.")
     
     elif prediction_event == '2025 IMF Event':
-        # IMF prediction
         historical_dates = event_dict['IMF Events']['dates']
         patterns = []
         for date in historical_dates:
@@ -266,7 +266,6 @@ else:
             avg_pattern = np.mean(patterns, axis=0)
             days = np.arange(-window_days, window_days + 1)
             
-            # Plot
             fig, ax = plt.subplots(figsize=(12, 6))
             ax.plot(days, avg_pattern, color='blue', label='IMF Pattern-Based Prediction (2025-05-09)')
             ax.axvline(x=0, color='red', linestyle='--', label='IMF Event Day')
@@ -277,11 +276,19 @@ else:
             ax.legend()
             plt.tight_layout()
             st.pyplot(fig)
+
+            buf = BytesIO()
+            fig.savefig(buf, format="png")
+            st.download_button(
+                label="Download Plot as PNG",
+                data=buf.getvalue(),
+                file_name="imf_prediction.png",
+                mime="image/png"
+            )
         else:
             st.warning("Not enough clean past IMF data to generate prediction.")
     
     elif prediction_event == '2025 Pak-India War':
-        # War prediction
         pre_war_window = df_full[(df_full['Date'] < event_date)].tail(60)
         if len(pre_war_window) == 60:
             scaled_close = scaler.transform(pre_war_window[['Close']])
@@ -299,7 +306,6 @@ else:
             normalized = combined / combined[0] * 100
             days = np.arange(-60, 60)
             
-            # Plot
             fig, ax = plt.subplots(figsize=(12, 6))
             ax.plot(days, normalized, color='darkred', label="Predicted War Impact (May 10, 2025)")
             ax.axvline(x=0, color='black', linestyle='--', label='War Event Day')
@@ -310,9 +316,14 @@ else:
             ax.legend()
             plt.tight_layout()
             st.pyplot(fig)
+
+            buf = BytesIO()
+            fig.savefig(buf, format="png")
+            st.download_button(
+                label="Download Plot as PNG",
+                data=buf.getvalue(),
+                file_name="war_prediction.png",
+                mime="image/png"
+            )
         else:
             st.warning("Not enough pre-event data to simulate the war prediction.")
-
-
-
-
