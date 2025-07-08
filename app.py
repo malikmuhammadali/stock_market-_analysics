@@ -147,13 +147,14 @@ if page == "Historical Analysis":
 
                     buf = BytesIO()
                     fig.savefig(buf, format="png")
-                    buf.seek(0) 
+                    buf.seek(0)
                     st.download_button(
-                        label="Download Plot as PNG",
-                        data=buf.getvalue(),
-                        file_name="historical_plot.png",
-                        mime="image/png"
-                    )
+                    label="Download Plot as PNG",
+                    data=buf.getvalue(),
+                    file_name=f"historical_plot_{event_type}_{date.date()}.png",
+                    mime="image/png",
+                    key=f"download_{event_type}_{date.date()}"
+                )
                 else:
                     st.warning(f"Skipped {date.date()} — too many missing Close values.")
             else:
@@ -201,7 +202,6 @@ else:
 
             buf = BytesIO()
             fig.savefig(buf, format="png")
-            buf.seek(0) 
             st.download_button(
                 label="Download Plot as PNG",
                 data=buf.getvalue(),
@@ -242,7 +242,6 @@ else:
 
             buf = BytesIO()
             fig.savefig(buf, format="png")
-            buf.seek(0) 
             st.download_button(
                 label="Download Plot as PNG",
                 data=buf.getvalue(),
@@ -282,7 +281,6 @@ else:
 
             buf = BytesIO()
             fig.savefig(buf, format="png")
-            buf.seek(0) 
             st.download_button(
                 label="Download Plot as PNG",
                 data=buf.getvalue(),
@@ -323,7 +321,6 @@ else:
 
             buf = BytesIO()
             fig.savefig(buf, format="png")
-            buf.seek(0) 
             st.download_button(
                 label="Download Plot as PNG",
                 data=buf.getvalue(),
