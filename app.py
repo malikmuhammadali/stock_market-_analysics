@@ -147,6 +147,7 @@ if page == "Historical Analysis":
 
                     buf = BytesIO()
                     fig.savefig(buf, format="png")
+                    buf.seek(0) 
                     st.download_button(
                         label="Download Plot as PNG",
                         data=buf.getvalue(),
@@ -200,6 +201,7 @@ else:
 
             buf = BytesIO()
             fig.savefig(buf, format="png")
+            buf.seek(0) 
             st.download_button(
                 label="Download Plot as PNG",
                 data=buf.getvalue(),
@@ -240,6 +242,7 @@ else:
 
             buf = BytesIO()
             fig.savefig(buf, format="png")
+            buf.seek(0) 
             st.download_button(
                 label="Download Plot as PNG",
                 data=buf.getvalue(),
@@ -279,6 +282,7 @@ else:
 
             buf = BytesIO()
             fig.savefig(buf, format="png")
+            buf.seek(0) 
             st.download_button(
                 label="Download Plot as PNG",
                 data=buf.getvalue(),
@@ -319,6 +323,7 @@ else:
 
             buf = BytesIO()
             fig.savefig(buf, format="png")
+            buf.seek(0) 
             st.download_button(
                 label="Download Plot as PNG",
                 data=buf.getvalue(),
