@@ -8,7 +8,7 @@ import os
 from datetime import timedelta
 
 # Set page configuration
-st.set_page_config(page_title="Pakistan Stock Market Analysis", layout="wide")
+st.set_page_config(page_title="Effects Of Political Events On Stock Market", layout="wide")
 
 # Load data and model
 @st.cache_data
