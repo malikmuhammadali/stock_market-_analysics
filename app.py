@@ -94,7 +94,6 @@ prediction_events = {
     '2028 Election': {'date': pd.to_datetime('2028-08-12'), 'window_days': 30},
     '2025 Budget': {'date': pd.to_datetime('2025-06-07'), 'window_days': 60},
     '2025 IMF Event': {'date': pd.to_datetime('2025-05-09'), 'window_days': 60},
-    '2025 Pak-India War': {'date': pd.to_datetime('2025-05-10'), 'window_days': 60}
 }
 
 st.sidebar.title("Navigation")
@@ -290,42 +289,4 @@ else:
         else:
             st.warning("Not enough clean past IMF data to generate prediction.")
     
-    elif prediction_event == '2025 Pak-India War':
-        pre_war_window = df_full[(df_full['Date'] < event_date)].tail(60)
-        if len(pre_war_window) == 60:
-            scaled_close = scaler.transform(pre_war_window[['Close']])
-            X_input = np.array(scaled_close).reshape(1, 60, 1)
-            predicted = []
-            current_input = X_input.copy()
-            
-            for _ in range(60):
-                pred = model.predict(current_input, verbose=0)
-                predicted.append(pred[0, 0])
-                current_input = np.append(current_input[:, 1:, :], [[[pred[0, 0]]]], axis=1)
-            
-            predicted_prices = scaler.inverse_transform(np.array(predicted).reshape(-1, 1)).flatten()
-            combined = np.concatenate([pre_war_window['Close'].values, predicted_prices])
-            normalized = combined / combined[0] * 100
-            days = np.arange(-60, 60)
-            
-            fig, ax = plt.subplots(figsize=(12, 6))
-            ax.plot(days, normalized, color='darkred', label="Predicted War Impact (May 10, 2025)")
-            ax.axvline(x=0, color='black', linestyle='--', label='War Event Day')
-            ax.set_title("Predicted Pakistan Stock Market Impact of India-Pakistan War", fontsize=14)
-            ax.set_xlabel("Days from Event")
-            ax.set_ylabel("Normalized Stock Price (%)")
-            ax.grid(True)
-            ax.legend()
-            plt.tight_layout()
-            st.pyplot(fig)
-
-            buf = BytesIO()
-            fig.savefig(buf, format="png")
-            st.download_button(
-                label="Download Plot as PNG",
-                data=buf.getvalue(),
-                file_name="war_prediction.png",
-                mime="image/png"
-            )
-        else:
-            st.warning("Not enough pre-event data to simulate the war prediction.")
+   
